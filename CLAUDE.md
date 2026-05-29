@@ -4,9 +4,11 @@
 
 Open-source CLI that migrates WordPress sites to clean Astro + MDX codebases. Apache-2.0. The wedge for a longer-term Native AI CMS thesis: file-based MDX content that AI agents can edit cleanly. Built as a TypeScript Node CLI with a `source-adapter → IR → emitter` architecture so additional sources (Webflow, Framer, Ghost) and emitters (Next, Hugo) can be added later.
 
-**Current state: Pass 1 (spine slice).** WXR XML input → IR → Astro MDX output, only `core/paragraph` and `core/heading` mapped, everything else preserved as `RawBlock` with a TODO marker. See `docs/spec-pass-1.md`.
+**Current state: Pass 6 complete (v0.6.0).** Both WXR XML and WordPress REST API source adapters. Maps paragraph, heading, list, quote, code, separator, image — plus pages, Yoast SEO postmeta + `yoast_head_json`, image pipeline (PNG/JPG → WebP), 301 redirect map (Netlify + Vercel), and a `verify` subcommand. Anything unmapped is preserved as `RawBlock` with a TODO marker.
 
-Stack: TypeScript on Node ≥20.11, pnpm, commander, fast-xml-parser, `@wordpress/block-serialization-default-parser`, zod, yaml, simple-git, vitest.
+Spec docs: `docs/spec-pass-{1..6}.md` — read the relevant one when working in that area.
+
+Stack: TypeScript on Node ≥20.11, pnpm, commander, fast-xml-parser, `@wordpress/block-serialization-default-parser`, zod, yaml, sharp, simple-git, vitest.
 
 ## Commands
 
@@ -39,7 +41,8 @@ node bin/wp-to-astro.mjs migrate <wxr> --out <dir>   # post-build dogfood
 
 ## Reference docs
 
-- `docs/spec-pass-1.md` — read when working on any Pass 1 task; defines scope, IR contract, acceptance criteria.
+- `docs/spec-pass-{1..6}.md` — per-pass specs. Read the one that matches the area you're editing.
+- `docs/plan-pass-{1..4}.md` — per-pass task plans (Pass 5/6 plans are inline in their specs).
 - `docs/research-report.md` — read when scoping future passes or when a design call needs strategic grounding (pricing, OSS split, launch sequence).
 - `docs/decisions.md` — read when revisiting a stack choice (pnpm vs npm, Apache vs AGPL, etc.) before reopening the debate.
 - `.claude/rules/*.md` — auto-load when editing the matching subsystem. Don't ignore them.
