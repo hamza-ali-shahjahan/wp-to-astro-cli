@@ -5,6 +5,42 @@ All notable changes to wp-to-astro will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-05-28
+
+**Pass 4: WordPress REST API source adapter.** `wp-to-astro migrate` now works against a live WordPress install in addition to a WXR file.
+
+### Added
+
+- `migrate` accepts a URL as its source argument (auto-detected: starts with `http://` or `https://` → REST; else → WXR file)
+- `--auth-user` / `--auth-pass` CLI flags, or `WP_AUTH_USER` / `WP_AUTH_PASS` env vars (env-var preferred for secrets)
+- `src/source-adapters/rest/` — REST client with Basic-auth (Application Password), paginated `/posts` and `/pages` fetching via `X-WP-TotalPages`, retry-once on 5xx, dedicated `RestAuthError` / `RestParseError` types
+- REST adapter fetches `/wp-json/wp/v2/settings` to populate `site.config` (title, description, baseUrl, permalinkStructure) — consumed by Pass 6
+- Yoast SEO `yoast_head_json` extracted into IR `Post.seo` / `Page.seo` (rendering deferred to Pass 5)
+- Helpful auth-failure error message with a direct link to the WordPress Application Passwords admin page
+
+### IR additions (0.4.0)
+
+- `SeoMeta` schema — optional `seo?` on `Post` / `Page`. Fields: `title`, `description`, `canonical`, `robots`, `ogImage`, `ogType`, `twitterCard`, `schema` (JSON-LD `@graph`).
+- `SiteConfig` schema — optional `config?` on `Site`. Fields: `title`, `description`, `baseUrl`, `permalinkStructure`.
+
+### Changed
+
+- **IR version: `0.3.0` → `0.4.0`** — additive: new optional fields only. WXR adapter still works without changes (produces a Site without `seo` or `config`).
+
+### Tests
+
+- 31 new tests: `rest-client.test.ts` (URL normalization, auth header, pagination, error mapping), `rest-mappers.test.ts` (DTO → IR, Yoast extraction, settings → SiteConfig), `rest-integration.test.ts` (stub fetcher → full Site).
+- Total: 97 passing across 18 files.
+
+### Not in this pass
+
+- RankMath SEO (`rank_math_head` is HTML, not JSON; parser deferred)
+- ACF custom fields via REST
+- Custom post types
+- OAuth / JWT auth (App Password is sufficient for most cases)
+- REST response caching to disk
+- Concurrent endpoint fetching
+
 ## [0.3.0] — 2026-05-28
 
 **Pass 3: image pipeline.** WordPress media URLs are now downloaded, optimized, and localized into the migrated Astro project.
