@@ -31,10 +31,10 @@ describe("applyPermalink", () => {
     expect(applyPermalink("/%year%/%postname%", post)).toBe("/2024/hello-world/");
   });
 
-  it("returns null for unsupported placeholders", () => {
-    expect(applyPermalink("/%category%/%postname%/", post)).toBeNull();
-    expect(applyPermalink("/%author%/%postname%/", post)).toBeNull();
-  });
+  // Note: applyPermalink no longer rejects unsupported placeholders — that's
+  // generateRedirects's job (validation happens once per site, not per post).
+  // Unknown placeholders pass through unsubstituted and produce a literal in
+  // the URL; generateRedirects refuses to emit before reaching this function.
 
   it("returns null for unparseable dates", () => {
     const broken = p("x", "not a date");

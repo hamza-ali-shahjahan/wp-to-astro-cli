@@ -119,6 +119,30 @@ describe("processImages", () => {
     expect(result.skipped[0]?.reason).toMatch(/non-image/i);
   });
 
+  it("rejects non-http(s) URLs at the pipeline layer (even with an injected fetcher that would accept them)", async () => {
+    // The test fetcher would happily return bytes for ANY URL, but the
+    // pipeline's SSRF gate sits above the fetcher boundary — so file:// is
+    // refused before the fetcher is even called.
+    let called = false;
+    const fetcher: ImageFetcher = async () => {
+      called = true;
+      return {
+        ok: true,
+        buffer: Buffer.from("hi"),
+        contentType: "image/png",
+      };
+    };
+    const result = await processImages(
+      ["file:///etc/passwd"],
+      await mktempDir(),
+      { fetcher, concurrency: 1 },
+    );
+    expect(called).toBe(false);
+    expect(result.urlMap.size).toBe(0);
+    expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0]?.reason).toMatch(/unsupported URL scheme/i);
+  });
+
   it("dedupes repeated URLs", async () => {
     const outDir = await mktempDir();
     const png = await makeRedPng();

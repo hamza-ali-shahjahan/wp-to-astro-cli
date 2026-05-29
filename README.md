@@ -116,6 +116,16 @@ wp-to-astro --version    Print the version and exit
 wp-to-astro --help       Print help and exit
 ```
 
+## Security notes
+
+A few things worth knowing before you point this at someone else's WordPress install:
+
+- **Image URLs are fetched as-is.** `core/image` blocks reference URLs that the WXR or REST source supplies. The default fetcher rejects non-`http(s)` schemes but does NOT filter private IPs. If you're migrating an export you didn't generate yourself, use `--skip-images` (URLs stay remote) until an allowlist flag lands.
+- **Unmapped Gutenberg blocks are emitted as raw HTML.** If the source WXR contains a `<script>` (e.g. from a custom embed block or a malicious WXR), it ends up inside an MDX file. Astro will execute it at build time / page-view time. Inspect the `{/* TODO: unmapped block ... */}` markers in your migrated content before deploying if the source isn't trusted.
+- **WXR files are size-capped at 200 MB.** Larger exports must be split or migrated via REST.
+- **Application Passwords on argv are visible in `ps`.** Prefer `WP_AUTH_USER` / `WP_AUTH_PASS` env vars.
+- **CDATA + entity-encoded Gutenberg comments are normalized**, but the underlying XML parser (`fast-xml-parser`) is configured to refuse external DTDs and entity expansion — XXE is not a path.
+
 ## Architecture
 
 `source-adapter → IR → emitter`. The IR (intermediate representation) is a versioned Zod schema in `src/ir/schema.ts` — adapters parse to IR, emitters render from IR. Each side is independently testable and swappable. See `docs/decisions.md`.

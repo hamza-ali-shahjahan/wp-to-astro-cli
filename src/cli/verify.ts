@@ -175,9 +175,15 @@ async function validateMdxFrontmatter(
   if (!content.startsWith("---\n")) {
     return { ok: false, reason: "no opening --- frontmatter delimiter" };
   }
-  const closeIdx = content.indexOf("\n---\n", 4);
+  // Accept closing `\n---\n` (normal) OR `\n---` at end-of-file (no trailing
+  // newline — common after hand-edits in some editors).
+  let closeIdx = content.indexOf("\n---\n", 4);
   if (closeIdx === -1) {
-    return { ok: false, reason: "no closing --- frontmatter delimiter" };
+    if (content.endsWith("\n---")) {
+      closeIdx = content.length - 4;
+    } else {
+      return { ok: false, reason: "no closing --- frontmatter delimiter" };
+    }
   }
   const fmText = content.slice(4, closeIdx);
   let parsed: unknown;

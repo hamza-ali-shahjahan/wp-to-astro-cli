@@ -29,10 +29,42 @@ const DEFAULT_CONCURRENCY = 4;
 const FETCH_TIMEOUT_MS = 30_000;
 
 /**
+ * Parse a URL and ensure it uses an http(s) scheme. Centralizes the SSRF
+ * "is this URL safe to fetch + safe to derive filename from" gate so all
+ * call sites in this file behave identically — including custom fetchers
+ * injected via `opts.fetcher`.
+ *
+ * SSRF defense: rejects non-`http(s)` schemes (`file://`, `data:`, `gopher://`,
+ * etc.). We do NOT block private-IP destinations — the threat model assumes
+ * the user trusts their own WXR's image URLs (their own WP site). A
+ * `--image-allow-host` allowlist is deferred. See `docs/spec-pass-3.md` §Risks.
+ */
+function tryParseHttpUrl(
+  raw: string,
+): { ok: true; url: URL } | { ok: false; reason: string } {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return { ok: false, reason: "invalid URL" };
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return { ok: false, reason: `unsupported URL scheme '${parsed.protocol}'` };
+  }
+  return { ok: true, url: parsed };
+}
+
+/**
  * Default network fetcher using Node's global `fetch`. 30s per-request timeout.
  * Errors and non-2xx responses produce `{ ok: false }`; callers never see throws.
+ *
+ * Defense in depth: also runs `tryParseHttpUrl` so consumers calling the
+ * default fetcher directly (without going through the pipeline) still get
+ * the SSRF gate.
  */
 export const defaultFetcher: ImageFetcher = async (url) => {
+  const r = tryParseHttpUrl(url);
+  if (!r.ok) return { ok: false, reason: r.reason };
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -104,7 +136,7 @@ export async function processImages(
 }
 
 async function processOne(
-  url: string,
+  rawUrl: string,
   assetsDir: string,
   outDir: string,
   fetcher: ImageFetcher,
@@ -113,9 +145,15 @@ async function processOne(
   | { ok: true; localPath: string; mdxPath: string }
   | { ok: false; reason: string }
 > {
+  // SSRF gate at the pipeline boundary — applies whether the caller uses
+  // defaultFetcher or an injected fetcher. The parsed URL is also threaded
+  // into extFromUrl / stemFromUrl to avoid re-parsing.
+  const parsed = tryParseHttpUrl(rawUrl);
+  if (!parsed.ok) return { ok: false, reason: parsed.reason };
+
   let fetched: ImageFetchResult;
   try {
-    fetched = await fetcher(url);
+    fetched = await fetcher(rawUrl);
   } catch (e) {
     return { ok: false, reason: `fetch threw: ${(e as Error).message}` };
   }
@@ -134,7 +172,7 @@ async function processOne(
   }
 
   let buffer = fetched.buffer;
-  let ext = extFromUrl(url) || extFromContentType(ct);
+  let ext = extFromUrl(parsed.url) || extFromContentType(ct);
 
   // Convert raster formats with broad browser support to WebP. Leave GIF
   // alone (animation), WebP/AVIF as-is, SVG as-is (vectors).
@@ -148,7 +186,7 @@ async function processOne(
   }
 
   const hash = crypto.createHash("sha256").update(buffer).digest("hex").slice(0, 8);
-  const stem = stemFromUrl(url);
+  const stem = stemFromUrl(parsed.url);
   const filename = `${stem}-${hash}${ext}`;
   const fullPath = path.join(assetsDir, filename);
   await fs.writeFile(fullPath, buffer);
@@ -162,15 +200,9 @@ async function processOne(
   };
 }
 
-function extFromUrl(url: string): string {
-  try {
-    const u = new URL(url);
-    const ext = path.extname(u.pathname).toLowerCase();
-    if (/^\.(png|jpe?g|gif|webp|avif|svg)$/.test(ext)) return ext;
-    return "";
-  } catch {
-    return "";
-  }
+function extFromUrl(url: URL): string {
+  const ext = path.extname(url.pathname).toLowerCase();
+  return /^\.(png|jpe?g|gif|webp|avif|svg)$/.test(ext) ? ext : "";
 }
 
 function extFromContentType(ct: string): string {
@@ -186,21 +218,19 @@ function extFromContentType(ct: string): string {
   return map[ct] ?? ".bin";
 }
 
-function stemFromUrl(url: string): string {
-  try {
-    const u = new URL(url);
-    const base = path.basename(u.pathname);
-    const ext = path.extname(base);
-    const stem = base.slice(0, base.length - ext.length);
-    return slugifyFilename(stem) || "image";
-  } catch {
-    return "image";
-  }
+function stemFromUrl(url: URL): string {
+  const base = path.basename(url.pathname);
+  const ext = path.extname(base);
+  const stem = base.slice(0, base.length - ext.length);
+  return slugifyFilename(stem) || "image";
 }
 
 function slugifyFilename(s: string): string {
   return s
     .toLowerCase()
     .replace(/[^a-z0-9.-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    // Strip leading dots (and dashes). A stem of `..` or `.` would otherwise
+    // survive into the filename — visually weird, no security impact (the
+    // sha-hash suffix prevents directory escape), but unsightly.
+    .replace(/^[-.]+|-+$/g, "");
 }

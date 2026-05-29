@@ -155,6 +155,24 @@ describe("getAllPages", () => {
     expect(out).toEqual([{ id: 1 }]);
   });
 
+  it("throws RestParseError (does NOT loop forever) on persistent 5xx", async () => {
+    let calls = 0;
+    const fetcher: RestFetcher = vi.fn(async () => {
+      calls++;
+      return new Response("oh no", { status: 503 });
+    });
+    await expect(
+      getAllPages<{ id: number }>(
+        "https://example.com/wp-json/wp/v2",
+        "/posts?context=edit",
+        { user: "u", pass: "p" },
+        { fetcher },
+      ),
+    ).rejects.toBeInstanceOf(RestParseError);
+    // Original fetch + one retry = 2. Any more = the infinite-retry bug.
+    expect(calls).toBe(2);
+  });
+
   it("maps a non-array response to RestParseError", async () => {
     const fetcher: RestFetcher = vi.fn(
       async () => jsonResponse({ code: "rest_no_route" }),

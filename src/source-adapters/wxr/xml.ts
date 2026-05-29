@@ -41,11 +41,30 @@ const parser = new XMLParser({
 });
 
 /**
+ * Hard cap on WXR file size. fast-xml-parser is not streaming and loads the
+ * entire document into memory; a multi-GB WXR would exhaust the heap. 200 MB
+ * comfortably covers the largest practical WP sites (e.g. a 10k-post blog
+ * exports at ~150 MB). Users with bigger sites should split the export by
+ * date range or use the REST adapter, which paginates.
+ */
+const MAX_WXR_BYTES = 200 * 1024 * 1024;
+
+/**
  * Read a WXR file from disk and return its channel's items in document order.
  *
- * Throws if the file is not a valid RSS 2.0 / WXR document.
+ * Throws if the file is not a valid RSS 2.0 / WXR document or if the file
+ * exceeds `MAX_WXR_BYTES`.
  */
 export async function readWxrItems(filepath: string): Promise<WxrItem[]> {
+  const stat = await fs.stat(filepath);
+  if (stat.size > MAX_WXR_BYTES) {
+    throw new Error(
+      `WXR parse: file '${filepath}' is ${Math.round(stat.size / 1024 / 1024)} MB, ` +
+        `which exceeds the ${MAX_WXR_BYTES / 1024 / 1024} MB cap. Split your ` +
+        `export by date range in WP admin (Tools → Export → "Posts" → choose a ` +
+        `date range) and migrate in chunks, or use the REST adapter.`,
+    );
+  }
   const buf = await fs.readFile(filepath, "utf-8");
   const doc = parser.parse(buf) as unknown;
   const channel = pluck(doc, ["rss", "channel"]);

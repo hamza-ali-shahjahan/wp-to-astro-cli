@@ -9,6 +9,17 @@ export type RedirectMap = {
   count: number;
 };
 
+/** Placeholders we can resolve from IR data — see `applyPermalink`. */
+const KNOWN_PLACEHOLDERS = new Set([
+  "%postname%",
+  "%year%",
+  "%monthnum%",
+  "%day%",
+  "%hour%",
+  "%minute%",
+  "%second%",
+]);
+
 /**
  * Generate redirect files from a site's permalink structure.
  *
@@ -35,10 +46,23 @@ export function generateRedirects(site: Site): RedirectMap | null {
   if (structure === undefined || structure.length === 0) return null;
   if (structure === "/%postname%/" || structure === "%postname%") return null;
 
+  // Validate the template ONCE per site, not per post. If the structure uses
+  // a placeholder we can't resolve (`%category%`, `%author%`, `%post_id%`),
+  // refuse to generate redirects rather than emit broken ones.
+  const placeholders = structure.match(/%[a-z_]+%/gi) ?? [];
+  for (const p of placeholders) {
+    if (!KNOWN_PLACEHOLDERS.has(p.toLowerCase())) {
+      process.stderr.write(
+        `wp-to-astro: redirect generation skipped — unsupported placeholder ${p} in '${structure}'\n`,
+      );
+      return null;
+    }
+  }
+
   const rules: Array<{ from: string; to: string }> = [];
   for (const post of site.posts) {
     const oldPath = applyPermalink(structure, post);
-    if (oldPath === null) continue; // unsupported placeholder, skipped
+    if (oldPath === null) continue; // invalid post date, skipped
     const newPath = `/${post.slug}/`;
     if (oldPath === newPath) continue;
     rules.push({ from: oldPath, to: newPath });
@@ -64,7 +88,15 @@ export function generateRedirects(site: Site): RedirectMap | null {
  * Apply a WordPress permalink structure template to a post, returning the
  * URL that post used to live at on the source WP site.
  *
- * Returns null if the template uses a placeholder we can't resolve from IR.
+ * Callers are expected to have already validated the template (see
+ * `generateRedirects`, which calls this in a loop). Returns null only when
+ * the post's date can't be parsed — every other failure mode is the
+ * caller's responsibility.
+ *
+ * Recognized placeholders: `%postname%`, `%year%`, `%monthnum%`, `%day%`,
+ * `%hour%`, `%minute%`, `%second%`. Any other `%name%` token in `template`
+ * passes through unsubstituted (and produces a wrong-looking URL); validate
+ * before calling.
  */
 export function applyPermalink(template: string, post: Post): string | null {
   const d = new Date(post.date);
@@ -79,16 +111,6 @@ export function applyPermalink(template: string, post: Post): string | null {
     "%minute%": pad(d.getUTCMinutes()),
     "%second%": pad(d.getUTCSeconds()),
   };
-
-  // Reject the template if it contains a placeholder we don't support.
-  const unknownPlaceholder = /%(?!postname|year|monthnum|day|hour|minute|second)[a-z_]+%/i;
-  if (unknownPlaceholder.test(template)) {
-    process.stderr.write(
-      `wp-to-astro: redirect skipped for '${post.slug}' — unsupported placeholder in '${template}'\n`,
-    );
-    return null;
-  }
-
   let out = template;
   for (const [key, value] of Object.entries(substitutions)) {
     out = out.split(key).join(value);

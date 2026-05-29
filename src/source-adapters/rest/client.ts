@@ -120,13 +120,20 @@ export async function getAllPages<T>(
   const perPage = opts.perPage ?? 100;
   const all: T[] = [];
 
+  // Track the most-recently-retried page. Pages are processed strictly
+  // sequentially, so only the current page can be in retry state — a single
+  // number is enough. (Previously this was `let attempt` declared inside the
+  // page body, which reset on every iteration → infinite retry on persistent
+  // 5xx until the MAX_PAGES cap kicked in.)
+  let retriedPage = 0;
+
   for (let page = 1; page <= MAX_PAGES; page++) {
     const sep = path.includes("?") ? "&" : "?";
     const url = `${baseUrl}${path}${sep}per_page=${perPage}&page=${page}`;
     let res: Response;
-    let attempt = 0;
-    // Retry loop for this single page.
-    for (;;) {
+
+    // Inner retry loop: at most ONE re-fetch on network error.
+    for (let attempt = 0; ; attempt++) {
       try {
         res = await fetcher(url, {
           headers: { Authorization: authHeader(auth), Accept: "application/json" },
@@ -134,7 +141,6 @@ export async function getAllPages<T>(
         break;
       } catch (e) {
         if (attempt === 0) {
-          attempt++;
           await sleep(1000);
           continue;
         }
@@ -154,10 +160,11 @@ export async function getAllPages<T>(
     // past the last page. Treat as end-of-pagination, not an error.
     if (res.status === 400 && page > 1) break;
 
-    if (res.status >= 500 && attempt === 0) {
-      attempt++;
+    // Retry-once on 5xx, with the retry tracked across iterations.
+    if (res.status >= 500 && retriedPage !== page) {
+      retriedPage = page;
       await sleep(1000);
-      page--; // retry this page
+      page--; // retry this page (for-loop will increment back)
       continue;
     }
 
@@ -182,10 +189,19 @@ export async function getAllPages<T>(
     }
 
     all.push(...items);
-    if (items.length === 0) break;
-
     const totalPagesHeader = res.headers.get("X-WP-TotalPages");
     const totalPages = totalPagesHeader ? parseInt(totalPagesHeader, 10) : 1;
+
+    if (items.length === 0) {
+      // Mid-pagination empty page — log so silent truncation isn't invisible.
+      if (Number.isFinite(totalPages) && page < totalPages) {
+        process.stderr.write(
+          `wp-to-astro: REST pagination stopped early at page ${page} of ${totalPages} (empty page; possible draft/visibility filter)\n`,
+        );
+      }
+      break;
+    }
+
     if (Number.isFinite(totalPages) && page >= totalPages) break;
   }
   return all;

@@ -11,7 +11,7 @@ export function slugify(input: string): string {
   const normalized = input
     .toLowerCase()
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "") // strip combining diacritic marks
+    .replace(/\p{M}/gu, "") // strip combining marks (diacritics)
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return normalized.length > 0 ? normalized : "untitled";
