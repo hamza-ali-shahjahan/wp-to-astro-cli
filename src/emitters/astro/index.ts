@@ -9,6 +9,7 @@ import {
   processImages,
   type ImageFetcher,
 } from "./image-pipeline.js";
+import { generateRedirects } from "./redirects.js";
 import {
   IR_VERSION,
   type Block,
@@ -31,6 +32,7 @@ export type EmitResult = {
   pages: number;
   images: number;
   imagesSkipped: number;
+  redirects: number;
   gitInitialized: boolean;
 };
 
@@ -123,7 +125,21 @@ export async function emitAstro(
   await writeAtomic(pkgTarget, await readTemplate("package.json.tmpl"));
   filesWritten.push(path.relative(outDir, pkgTarget));
 
-  // 6. Git init (best effort)
+  // 6. Redirects (Netlify _redirects + Vercel vercel.json) — only when the
+  // site has a non-trivial permalink structure.
+  let redirectsCount = 0;
+  const redirects = generateRedirects(site);
+  if (redirects !== null) {
+    const netlifyTarget = path.join(outDir, "_redirects");
+    await writeAtomic(netlifyTarget, redirects.netlify);
+    filesWritten.push(path.relative(outDir, netlifyTarget));
+    const vercelTarget = path.join(outDir, "vercel.json");
+    await writeAtomic(vercelTarget, redirects.vercelJson);
+    filesWritten.push(path.relative(outDir, vercelTarget));
+    redirectsCount = redirects.count;
+  }
+
+  // 7. Git init (best effort)
   const gitInitialized = await initGitRepo(outDir);
 
   return {
@@ -132,6 +148,7 @@ export async function emitAstro(
     pages: site.pages.length,
     images: imagesWritten,
     imagesSkipped,
+    redirects: redirectsCount,
     gitInitialized,
   };
 }

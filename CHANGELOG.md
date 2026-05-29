@@ -5,6 +5,42 @@ All notable changes to wp-to-astro will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — 2026-05-29
+
+**Pass 6: 301 redirect generation + `verify` subcommand.**
+
+### Added
+
+- `src/emitters/astro/redirects.ts`:
+  - `applyPermalink(template, post)` — applies WP permalink placeholders (`%postname%`, `%year%`, `%monthnum%`, `%day%`, `%hour%`, `%minute%`, `%second%`) to a post's slug + date. Returns null on unsupported placeholders (`%category%`, `%author%`, etc.) — silent skip, no broken redirect.
+  - `generateRedirects(site)` — returns `{ netlify, vercelJson, count }` or null when the site has no permalink structure or it's the trivial `/%postname%/` pattern.
+- Emitter wires the redirect generator into `emitAstro`. When non-null, writes:
+  - `_redirects` (Netlify format: `OLD NEW 301`)
+  - `vercel.json` (`{ "redirects": [{ source, destination, permanent: true }] }`)
+- New CLI subcommand: `wp-to-astro verify <site-dir>`. Lightweight structural sanity check (no subprocesses, no astro build). Walks the migrated tree and validates:
+  - `src/content/config.ts` exists
+  - `package.json` parses
+  - every `.mdx` under `src/content/{posts,pages}/` has a `---`-delimited YAML frontmatter with required `title` + `slug`
+  - if present, `_redirects` lines are `<from> <to> <code>` with a valid status code
+  - if present, `vercel.json` has a top-level `redirects` array
+- `EmitResult.redirects` count exposed to migrate CLI output
+- 20 new tests across `redirects.test.ts` (applyPermalink edge cases, format generation), `emit-redirects.test.ts` (integration through emitAstro), and `verify.test.ts` (all pass/fail paths)
+
+### Design notes
+
+- **The "new URL" target is hard-coded to `/<slug>/`** — matching the most common Astro routing pattern. Users with different routes edit `_redirects` after migration.
+- **Pages don't get redirects** — pages already live at `/<slug>/` in both WP and Astro by default.
+- **Permalink structure comes from `site.config.permalinkStructure`** — populated by the REST adapter from `/wp-json/wp/v2/settings`. WXR doesn't directly export the permalink option; WXR migrations get no redirects unless the user manually sets `site.config` via a future `--permalink` CLI flag (deferred).
+- **Verify is structural-only in v1.** Running `astro check` or `astro build` requires installing dependencies — that's a separate, heavier operation the user can run themselves. Documented as a follow-up.
+
+### Not in this pass
+
+- `.htaccess` format (deferred; less commonly needed)
+- `--permalink <structure>` CLI override for WXR migrations
+- Running `astro check` / `astro build` from `verify`
+- URL crawl + redirect health check
+- Lighthouse integration
+
 ## [0.5.0] — 2026-05-29
 
 **Pass 5: SEO metadata emission.** Yoast SEO postmeta from WXR (and `yoast_head_json` from REST) now flow through to MDX frontmatter under a `seo:` key.

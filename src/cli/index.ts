@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { runMigrate } from "./migrate.js";
+import { runVerify } from "./verify.js";
 
 const program = new Command();
 
@@ -9,7 +10,7 @@ program
   .description(
     "Migrate a WordPress site (WXR export) to a clean Astro + MDX codebase.",
   )
-  .version("0.5.0");
+  .version("0.6.0");
 
 program
   .command("migrate")
@@ -53,6 +54,17 @@ program
       process.exit(code);
     },
   );
+
+program
+  .command("verify")
+  .description(
+    "Structural sanity check on a migrated Astro project — frontmatter, redirects, package.json",
+  )
+  .argument("<site-dir>", "Path to the migrated Astro project directory")
+  .action(async (siteDir: string) => {
+    const code = await runVerify(siteDir);
+    process.exit(code);
+  });
 
 program.parseAsync(process.argv).catch((e: unknown) => {
   process.stderr.write(

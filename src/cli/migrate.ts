@@ -56,6 +56,11 @@ export async function runMigrate(
             : "\n"),
       );
     }
+    if (result.redirects > 0) {
+      process.stdout.write(
+        `wp-to-astro: ${result.redirects} redirect(s) written to _redirects + vercel.json\n`,
+      );
+    }
     process.stdout.write(
       `wp-to-astro: ${result.filesWritten.length} file(s) written` +
         (result.gitInitialized ? " (git initialized)\n" : " (git skipped)\n"),
