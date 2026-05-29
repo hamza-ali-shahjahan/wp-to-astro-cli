@@ -190,6 +190,7 @@ function renderPost(post: Post, urlMap: Map<string, string>): string {
     slug: post.slug,
     date: post.date,
     ...(post.excerpt !== undefined ? { excerpt: post.excerpt } : {}),
+    ...(post.seo !== undefined ? { seo: post.seo } : {}),
   });
   const body = post.blocks
     .map((b) => rewriteImageSrc(b, urlMap))
@@ -204,6 +205,7 @@ function renderPage(page: Page, urlMap: Map<string, string>): string {
     slug: page.slug,
     ...(page.date !== undefined ? { date: page.date } : {}),
     ...(page.excerpt !== undefined ? { excerpt: page.excerpt } : {}),
+    ...(page.seo !== undefined ? { seo: page.seo } : {}),
   });
   const body = page.blocks
     .map((b) => rewriteImageSrc(b, urlMap))

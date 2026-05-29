@@ -1,5 +1,6 @@
 import { readWxrItems, type WxrItem } from "./xml.js";
 import { parseContentBlocks } from "./blocks.js";
+import { extractSeoFromPostmeta } from "./seo.js";
 import { slugify } from "../../util/slug.js";
 import {
   IR_VERSION,
@@ -49,6 +50,8 @@ function toPost(it: WxrItem): Post {
   if (it.excerpt !== undefined && it.excerpt.length > 0) {
     post.excerpt = it.excerpt;
   }
+  const seo = extractSeoFromPostmeta(it.postmeta);
+  if (seo !== undefined) post.seo = seo;
   return post;
 }
 
@@ -68,6 +71,8 @@ function toPage(it: WxrItem): Page {
   if (it.excerpt !== undefined && it.excerpt.length > 0) {
     page.excerpt = it.excerpt;
   }
+  const seo = extractSeoFromPostmeta(it.postmeta);
+  if (seo !== undefined) page.seo = seo;
   return page;
 }
 

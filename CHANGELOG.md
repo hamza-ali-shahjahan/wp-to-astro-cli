@@ -5,6 +5,36 @@ All notable changes to wp-to-astro will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-05-29
+
+**Pass 5: SEO metadata emission.** Yoast SEO postmeta from WXR (and `yoast_head_json` from REST) now flow through to MDX frontmatter under a `seo:` key.
+
+### Added
+
+- WXR adapter parses `<wp:postmeta>` entries (was previously ignored)
+- `src/source-adapters/wxr/seo.ts` — `extractSeoFromPostmeta` reads Yoast postmeta keys:
+  - `_yoast_wpseo_title` → `seo.title`
+  - `_yoast_wpseo_metadesc` → `seo.description`
+  - `_yoast_wpseo_canonical` → `seo.canonical`
+  - `_yoast_wpseo_meta-robots-noindex` + `_yoast_wpseo_meta-robots-nofollow` → joined `seo.robots`
+  - `_yoast_wpseo_opengraph-image` → `seo.ogImage`
+- `buildFrontmatter` emits a nested `seo:` block when present (yaml.stringify with `sortMapEntries: true` alphabetizes nested fields too)
+- Emitted Astro `src/content/config.ts` now declares the `seo` schema on both `posts` and `pages` collections so Astro validates the field
+- 9 new tests across `wxr-seo.test.ts` (Yoast extraction edge cases) and `migrate.golden-pass5.test.ts` (end-to-end MDX with nested seo)
+
+### Changed
+
+- Pass 1 / Pass 2 / Pass 3 expected `content/config.ts` fixtures updated to include the additive `seo` schema. No prior MDX changes — posts without SEO postmeta produce identical frontmatter to before.
+- `WxrItem` shape gains `postmeta: Array<{key, value}>`
+- `FrontmatterMeta` now accepts an optional `seo` field
+- No IR version bump — the `SeoMeta` schema added in 0.4.0 is reused unchanged
+
+### What's still pending
+
+- Yoast `og_type`, `twitter_card`, schema graph in WXR are captured in the IR via REST but not extracted from WXR postmeta (Yoast doesn't store those as discrete postmeta entries — would require parsing the head_json blob which Yoast doesn't write to postmeta)
+- RankMath postmeta (`rank_math_*` keys) — same shape, deferred
+- ACF SEO plugins — deferred
+
 ## [0.4.0] — 2026-05-28
 
 **Pass 4: WordPress REST API source adapter.** `wp-to-astro migrate` now works against a live WordPress install in addition to a WXR file.

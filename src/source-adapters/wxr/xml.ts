@@ -3,7 +3,10 @@ import { XMLParser } from "fast-xml-parser";
 
 /**
  * The minimal shape we care about from a WXR `<item>`. WXR has many more
- * fields (categories, tags, postmeta, comments, …) — Pass 1 ignores them.
+ * fields (categories, tags, comments, …) — we ignore them.
+ *
+ * `postmeta` carries any `<wp:postmeta>` key/value pairs. Pass 5 reads
+ * Yoast SEO keys (`_yoast_wpseo_title`, etc.) out of this map.
  */
 export type WxrItem = {
   title: string;
@@ -14,6 +17,7 @@ export type WxrItem = {
   status: string | undefined;
   contentEncoded: string;
   excerpt: string | undefined;
+  postmeta: Array<{ key: string; value: string }>;
 };
 
 /**
@@ -71,7 +75,25 @@ function mapItem(it: unknown, filepath: string, idx: number): WxrItem {
     status: cdataOrString(o["wp:status"]),
     contentEncoded: cdataOrString(o["content:encoded"]) ?? "",
     excerpt: nonEmpty(cdataOrString(o["excerpt:encoded"])),
+    postmeta: extractPostmeta(o["wp:postmeta"]),
   };
+}
+
+/** Normalize `<wp:postmeta>` (which may be missing, single, or an array). */
+function extractPostmeta(raw: unknown): Array<{ key: string; value: string }> {
+  if (raw === undefined || raw === null) return [];
+  const entries = Array.isArray(raw) ? raw : [raw];
+  const out: Array<{ key: string; value: string }> = [];
+  for (const e of entries) {
+    if (typeof e !== "object" || e === null) continue;
+    const o = e as Record<string, unknown>;
+    const key = cdataOrString(o["wp:meta_key"]);
+    const value = cdataOrString(o["wp:meta_value"]);
+    if (key !== undefined && value !== undefined) {
+      out.push({ key, value });
+    }
+  }
+  return out;
 }
 
 function pluck(obj: unknown, path: string[]): unknown {
