@@ -30,14 +30,14 @@ describe("WXR Gutenberg block mapper", () => {
     expect(blocks).toEqual([{ type: "heading", level: 2, text: "Title" }]);
   });
 
-  it("emits a raw block for an unmapped block", () => {
+  it("emits a raw block for an unmapped block (pre-6.0 flat list)", () => {
     const blocks = parseContentBlocks(
       "<!-- wp:list -->\n<ul><li>x</li></ul>\n<!-- /wp:list -->",
     );
     expect(blocks).toHaveLength(1);
     expect(blocks[0]).toMatchObject({
       type: "raw",
-      todo: "unmapped block: core/list",
+      todo: expect.stringContaining("core/list"),
     });
   });
 

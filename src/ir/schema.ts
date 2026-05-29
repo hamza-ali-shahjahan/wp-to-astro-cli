@@ -9,7 +9,7 @@
  */
 import { z } from "zod";
 
-export const IR_VERSION = "0.1.0" as const;
+export const IR_VERSION = "0.2.0" as const;
 
 export const ParagraphBlockSchema = z.object({
   type: z.literal("paragraph"),
@@ -28,6 +28,32 @@ export const HeadingBlockSchema = z.object({
   text: z.string(),
 });
 
+export const ListItemSchema = z.object({
+  text: z.string(),
+});
+
+export const ListBlockSchema = z.object({
+  type: z.literal("list"),
+  ordered: z.boolean(),
+  items: z.array(ListItemSchema),
+});
+
+export const QuoteBlockSchema = z.object({
+  type: z.literal("quote"),
+  text: z.string(),
+  citation: z.string().optional(),
+});
+
+export const CodeBlockSchema = z.object({
+  type: z.literal("code"),
+  language: z.string().optional(),
+  content: z.string(),
+});
+
+export const SeparatorBlockSchema = z.object({
+  type: z.literal("separator"),
+});
+
 export const RawBlockSchema = z.object({
   type: z.literal("raw"),
   html: z.string(),
@@ -37,6 +63,10 @@ export const RawBlockSchema = z.object({
 export const BlockSchema = z.discriminatedUnion("type", [
   ParagraphBlockSchema,
   HeadingBlockSchema,
+  ListBlockSchema,
+  QuoteBlockSchema,
+  CodeBlockSchema,
+  SeparatorBlockSchema,
   RawBlockSchema,
 ]);
 
@@ -48,16 +78,31 @@ export const PostSchema = z.object({
   blocks: z.array(BlockSchema),
 });
 
-// Pages reserved for Pass 2. In Pass 1, the array is required to be empty.
+// Pages share Post's shape but `date` is optional (a static "About" page
+// doesn't have a meaningful publication date).
+export const PageSchema = z.object({
+  slug: z.string().min(1),
+  title: z.string(),
+  date: z.string().optional(),
+  excerpt: z.string().optional(),
+  blocks: z.array(BlockSchema),
+});
+
 export const SiteSchema = z.object({
   version: z.literal(IR_VERSION),
   posts: z.array(PostSchema),
-  pages: z.array(z.never()),
+  pages: z.array(PageSchema),
 });
 
 export type ParagraphBlock = z.infer<typeof ParagraphBlockSchema>;
 export type HeadingBlock = z.infer<typeof HeadingBlockSchema>;
+export type ListBlock = z.infer<typeof ListBlockSchema>;
+export type ListItem = z.infer<typeof ListItemSchema>;
+export type QuoteBlock = z.infer<typeof QuoteBlockSchema>;
+export type CodeBlock = z.infer<typeof CodeBlockSchema>;
+export type SeparatorBlock = z.infer<typeof SeparatorBlockSchema>;
 export type RawBlock = z.infer<typeof RawBlockSchema>;
 export type Block = z.infer<typeof BlockSchema>;
 export type Post = z.infer<typeof PostSchema>;
+export type Page = z.infer<typeof PageSchema>;
 export type Site = z.infer<typeof SiteSchema>;

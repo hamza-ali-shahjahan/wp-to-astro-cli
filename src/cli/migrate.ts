@@ -37,7 +37,7 @@ export async function runMigrate(
     const site = await parseWxr(wxrFile);
     const result = await emitAstro(site, outDir, { force: opts.force });
     process.stdout.write(
-      `wp-to-astro: migrated ${result.posts} post(s) to ${outDir}\n`,
+      `wp-to-astro: migrated ${result.posts} post(s) and ${result.pages} page(s) to ${outDir}\n`,
     );
     process.stdout.write(
       `wp-to-astro: ${result.filesWritten.length} file(s) written` +

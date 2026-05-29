@@ -9,7 +9,7 @@ program
   .description(
     "Migrate a WordPress site (WXR export) to a clean Astro + MDX codebase.",
   )
-  .version("0.1.0");
+  .version("0.2.0");
 
 program
   .command("migrate")

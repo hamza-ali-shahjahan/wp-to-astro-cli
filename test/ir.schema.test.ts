@@ -9,8 +9,8 @@ import {
 import { slugify } from "../src/util/slug.js";
 
 describe("IR schema (v0.1.0)", () => {
-  it("exposes IR_VERSION as '0.1.0'", () => {
-    expect(IR_VERSION).toBe("0.1.0");
+  it("exposes IR_VERSION as '0.2.0'", () => {
+    expect(IR_VERSION).toBe("0.2.0");
   });
 
   it("accepts a paragraph block", () => {
