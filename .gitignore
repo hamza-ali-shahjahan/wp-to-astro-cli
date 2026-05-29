@@ -1,0 +1,35 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# test artifacts
+coverage/
+.vitest-cache/
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/settings.json
+
+# env
+.env
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Claude personal overrides — never commit
+CLAUDE.local.md
+.claude/settings.local.json
+
+# dogfood scratch
+/tmp-out/
+/dogfood-out/

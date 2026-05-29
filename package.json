@@ -1,0 +1,51 @@
+{
+  "name": "wp-to-astro",
+  "version": "0.1.0",
+  "description": "Open-source CLI that migrates WordPress sites to clean Astro + MDX codebases.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "bin": {
+    "wp-to-astro": "./bin/wp-to-astro.mjs"
+  },
+  "main": "./dist/cli/index.js",
+  "files": [
+    "bin",
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-templates.mjs",
+    "dev": "tsx src/cli/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm run build"
+  },
+  "keywords": [
+    "wordpress",
+    "astro",
+    "migration",
+    "mdx",
+    "cli",
+    "static-site",
+    "gutenberg"
+  ],
+  "dependencies": {
+    "@wordpress/block-serialization-default-parser": "^5.30.0",
+    "commander": "^12.1.0",
+    "fast-xml-parser": "^4.5.0",
+    "simple-git": "^3.27.0",
+    "yaml": "^2.6.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
