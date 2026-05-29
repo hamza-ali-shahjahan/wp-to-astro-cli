@@ -1,5 +1,5 @@
 import { parse as parseGutenberg } from "@wordpress/block-serialization-default-parser";
-import type { Block } from "../../ir/schema.js";
+import type { Block, ImageBlock } from "../../ir/schema.js";
 
 // The Gutenberg parser's block shape (mirrors what its .d.ts exposes).
 type ParsedBlock = {
@@ -112,12 +112,57 @@ function mapBlock(b: ParsedBlock): Block {
     return { type: "separator" };
   }
 
+  if (blockName === "core/image") {
+    return extractImage(b.innerHTML, attrs);
+  }
+
   // Unknown block: preserve verbatim with a TODO marker.
   return {
     type: "raw",
     html: b.innerHTML.trim(),
     todo: `unmapped block: ${blockName}`,
   };
+}
+
+/**
+ * Extract an ImageBlock from a Gutenberg `core/image` block's innerHTML.
+ *
+ * Expected shape:
+ *   <figure class="wp-block-image ...">
+ *     <img src="..." alt="..." class="wp-image-N"/>
+ *     <figcaption>...</figcaption>     (optional)
+ *   </figure>
+ *
+ * Width/height come from the block's JSON attrs, not from <img width=>
+ * (those are usually stripped by Gutenberg's serializer).
+ */
+function extractImage(
+  innerHTML: string,
+  attrs: Record<string, unknown>,
+): ImageBlock {
+  const inner = stripOuterTag(innerHTML.trim(), "figure").trim();
+
+  const imgMatch = inner.match(/<img\b([^>]*?)\/?>/i);
+  const imgAttrs = imgMatch?.[1] ?? "";
+  const srcMatch = imgAttrs.match(/\bsrc\s*=\s*["']([^"']*)["']/i);
+  const altMatch = imgAttrs.match(/\balt\s*=\s*["']([^"']*)["']/i);
+  const src = decodeEntities(srcMatch?.[1] ?? "");
+  const alt = decodeEntities(altMatch?.[1] ?? "");
+
+  const capMatch = inner.match(/<figcaption\b[^>]*>([\s\S]*?)<\/figcaption>/i);
+  const captionRaw = capMatch?.[1];
+
+  const out: ImageBlock = { type: "image", src, alt };
+  if (typeof attrs["width"] === "number" && Number.isInteger(attrs["width"]) && (attrs["width"] as number) > 0) {
+    out.width = attrs["width"] as number;
+  }
+  if (typeof attrs["height"] === "number" && Number.isInteger(attrs["height"]) && (attrs["height"] as number) > 0) {
+    out.height = attrs["height"] as number;
+  }
+  if (captionRaw !== undefined && captionRaw.trim().length > 0) {
+    out.caption = captionRaw.trim();
+  }
+  return out;
 }
 
 /** Pass 1 reserves h1 for the page layout; clamp content headings to 2..6. */

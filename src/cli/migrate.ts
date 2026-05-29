@@ -6,6 +6,7 @@ import { emitAstro, EmitterError } from "../emitters/astro/index.js";
 export type MigrateOptions = {
   out: string;
   force: boolean;
+  skipImages: boolean;
 };
 
 /**
@@ -35,10 +36,21 @@ export async function runMigrate(
 
   try {
     const site = await parseWxr(wxrFile);
-    const result = await emitAstro(site, outDir, { force: opts.force });
+    const result = await emitAstro(site, outDir, {
+      force: opts.force,
+      skipImages: opts.skipImages,
+    });
     process.stdout.write(
       `wp-to-astro: migrated ${result.posts} post(s) and ${result.pages} page(s) to ${outDir}\n`,
     );
+    if (!opts.skipImages) {
+      process.stdout.write(
+        `wp-to-astro: ${result.images} image(s) processed` +
+          (result.imagesSkipped > 0
+            ? `, ${result.imagesSkipped} skipped (see warnings above)\n`
+            : "\n"),
+      );
+    }
     process.stdout.write(
       `wp-to-astro: ${result.filesWritten.length} file(s) written` +
         (result.gitInitialized ? " (git initialized)\n" : " (git skipped)\n"),

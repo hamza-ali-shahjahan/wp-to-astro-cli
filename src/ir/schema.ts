@@ -9,7 +9,7 @@
  */
 import { z } from "zod";
 
-export const IR_VERSION = "0.2.0" as const;
+export const IR_VERSION = "0.3.0" as const;
 
 export const ParagraphBlockSchema = z.object({
   type: z.literal("paragraph"),
@@ -54,6 +54,15 @@ export const SeparatorBlockSchema = z.object({
   type: z.literal("separator"),
 });
 
+export const ImageBlockSchema = z.object({
+  type: z.literal("image"),
+  src: z.string(),
+  alt: z.string(),
+  width: z.number().int().positive().optional(),
+  height: z.number().int().positive().optional(),
+  caption: z.string().optional(),
+});
+
 export const RawBlockSchema = z.object({
   type: z.literal("raw"),
   html: z.string(),
@@ -67,6 +76,7 @@ export const BlockSchema = z.discriminatedUnion("type", [
   QuoteBlockSchema,
   CodeBlockSchema,
   SeparatorBlockSchema,
+  ImageBlockSchema,
   RawBlockSchema,
 ]);
 
@@ -101,6 +111,7 @@ export type ListItem = z.infer<typeof ListItemSchema>;
 export type QuoteBlock = z.infer<typeof QuoteBlockSchema>;
 export type CodeBlock = z.infer<typeof CodeBlockSchema>;
 export type SeparatorBlock = z.infer<typeof SeparatorBlockSchema>;
+export type ImageBlock = z.infer<typeof ImageBlockSchema>;
 export type RawBlock = z.infer<typeof RawBlockSchema>;
 export type Block = z.infer<typeof BlockSchema>;
 export type Post = z.infer<typeof PostSchema>;

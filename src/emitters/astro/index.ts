@@ -5,7 +5,13 @@ import { simpleGit } from "simple-git";
 import { renderBlock } from "./render-block.js";
 import { buildFrontmatter } from "./frontmatter.js";
 import {
+  defaultFetcher,
+  processImages,
+  type ImageFetcher,
+} from "./image-pipeline.js";
+import {
   IR_VERSION,
+  type Block,
   type Page,
   type Post,
   type Site,
@@ -13,12 +19,18 @@ import {
 
 export type EmitOptions = {
   force?: boolean;
+  /** Skip the image download/conversion pipeline; keep image URLs remote in MDX. */
+  skipImages?: boolean;
+  /** Inject a custom image fetcher for testing. Defaults to native fetch. */
+  fetcher?: ImageFetcher;
 };
 
 export type EmitResult = {
   filesWritten: string[];
   posts: number;
   pages: number;
+  images: number;
+  imagesSkipped: number;
   gitInitialized: boolean;
 };
 
@@ -31,18 +43,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATES_DIR = path.join(__dirname, "templates");
 
 /**
- * Emit an Astro project skeleton (content collections + package.json + git
- * repo) from the IR.
+ * Emit an Astro project skeleton from the IR.
  *
- * - `src/content/posts/<slug>.mdx` — one per post
- * - `src/content/pages/<slug>.mdx` — one per page (only emitted if `site.pages` is non-empty)
- * - `src/content/config.ts` — Astro content-collection schemas (posts + pages)
- * - `package.json` — astro + @astrojs/mdx (deps declared, not installed)
- * - `.git/` with one commit "Initial migration from WXR"
+ * Pipeline:
+ *   1. Image pipeline (unless `opts.skipImages`): download every image URL,
+ *      convert PNG/JPG to WebP via sharp, write to `src/assets/images/`.
+ *      Build a Map<originalUrl, mdxRelPath> for rewriting.
+ *   2. Write `src/content/posts/<slug>.mdx` and `src/content/pages/<slug>.mdx`,
+ *      with each `image` block's `src` rewritten via the urlMap if found.
+ *   3. Write `src/content/config.ts` and stub `package.json`.
+ *   4. `git init` + initial commit (best effort; non-fatal on failure).
  *
- * Slug uniqueness is enforced per-collection: a post and a page may share a slug.
- * Refuses to write into a non-empty `outDir` unless `opts.force === true`.
- * Git initialization failure is non-fatal — files remain written.
+ * Slug uniqueness is enforced per-collection. Refuses non-empty target without
+ * `opts.force`.
  */
 export async function emitAstro(
   site: Site,
@@ -59,35 +72,66 @@ export async function emitAstro(
 
   const filesWritten: string[] = [];
 
-  // 1. Posts
+  // 1. Image pipeline — run before rendering so image blocks can be rewritten.
+  let urlMap = new Map<string, string>();
+  let imagesWritten = 0;
+  let imagesSkipped = 0;
+  if (opts.skipImages !== true) {
+    const urls = collectImageUrls(site);
+    if (urls.length > 0) {
+      const result = await processImages(urls, outDir, {
+        fetcher: opts.fetcher ?? defaultFetcher,
+      });
+      urlMap = result.urlMap;
+      imagesWritten = result.filesWritten.length;
+      imagesSkipped = result.skipped.length;
+      for (const f of result.filesWritten) filesWritten.push(f);
+    }
+  }
+
+  // 2. Posts
   const postsDir = path.join(outDir, "src", "content", "posts");
   await fs.mkdir(postsDir, { recursive: true });
-  await writeCollection(postsDir, site.posts, renderPost, outDir, filesWritten);
+  await writeCollection(
+    postsDir,
+    site.posts,
+    (post) => renderPost(post, urlMap),
+    outDir,
+    filesWritten,
+  );
 
-  // 2. Pages (only emit the dir if there are any pages — keeps empty migrations tidy)
+  // 3. Pages (only if any)
   if (site.pages.length > 0) {
     const pagesDir = path.join(outDir, "src", "content", "pages");
     await fs.mkdir(pagesDir, { recursive: true });
-    await writeCollection(pagesDir, site.pages, renderPage, outDir, filesWritten);
+    await writeCollection(
+      pagesDir,
+      site.pages,
+      (page) => renderPage(page, urlMap),
+      outDir,
+      filesWritten,
+    );
   }
 
-  // 3. content/config.ts
+  // 4. content/config.ts
   const configTarget = path.join(outDir, "src", "content", "config.ts");
   await writeAtomic(configTarget, await readTemplate("config.ts.tmpl"));
   filesWritten.push(path.relative(outDir, configTarget));
 
-  // 4. package.json
+  // 5. package.json
   const pkgTarget = path.join(outDir, "package.json");
   await writeAtomic(pkgTarget, await readTemplate("package.json.tmpl"));
   filesWritten.push(path.relative(outDir, pkgTarget));
 
-  // 5. Git init (best effort)
+  // 6. Git init (best effort)
   const gitInitialized = await initGitRepo(outDir);
 
   return {
     filesWritten: filesWritten.sort(),
     posts: site.posts.length,
     pages: site.pages.length,
+    images: imagesWritten,
+    imagesSkipped,
     gitInitialized,
   };
 }
@@ -117,25 +161,54 @@ async function writeCollection<T extends { slug: string }>(
   }
 }
 
-function renderPost(post: Post): string {
+function collectImageUrls(site: Site): string[] {
+  const urls: string[] = [];
+  const collect = (blocks: Block[]): void => {
+    for (const b of blocks) {
+      if (b.type === "image" && b.src.length > 0) urls.push(b.src);
+    }
+  };
+  for (const p of site.posts) collect(p.blocks);
+  for (const p of site.pages) collect(p.blocks);
+  return urls;
+}
+
+/** Substitute image src with the local path if the pipeline downloaded it. */
+function rewriteImageSrc(b: Block, urlMap: Map<string, string>): Block {
+  if (b.type === "image") {
+    const local = urlMap.get(b.src);
+    if (local !== undefined) {
+      return { ...b, src: local };
+    }
+  }
+  return b;
+}
+
+function renderPost(post: Post, urlMap: Map<string, string>): string {
   const fm = buildFrontmatter({
     title: post.title,
     slug: post.slug,
     date: post.date,
     ...(post.excerpt !== undefined ? { excerpt: post.excerpt } : {}),
   });
-  const body = post.blocks.map(renderBlock).join("");
+  const body = post.blocks
+    .map((b) => rewriteImageSrc(b, urlMap))
+    .map(renderBlock)
+    .join("");
   return `${fm}${body}`;
 }
 
-function renderPage(page: Page): string {
+function renderPage(page: Page, urlMap: Map<string, string>): string {
   const fm = buildFrontmatter({
     title: page.title,
     slug: page.slug,
     ...(page.date !== undefined ? { date: page.date } : {}),
     ...(page.excerpt !== undefined ? { excerpt: page.excerpt } : {}),
   });
-  const body = page.blocks.map(renderBlock).join("");
+  const body = page.blocks
+    .map((b) => rewriteImageSrc(b, urlMap))
+    .map(renderBlock)
+    .join("");
   return `${fm}${body}`;
 }
 

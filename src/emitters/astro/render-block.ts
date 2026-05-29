@@ -45,6 +45,19 @@ export function renderBlock(block: Block): string {
     case "separator":
       return `<hr />\n\n`;
 
+    case "image": {
+      // Escape closing brackets in alt text so they don't terminate the
+      // markdown image-alt segment. Other special chars (`(`, `)`, `*`) inside
+      // alt are technically problematic too but extremely rare in practice; we
+      // accept the trade-off for legibility of common alt text.
+      const altEscaped = block.alt.replace(/\]/g, "\\]");
+      const main = `![${altEscaped}](${block.src})`;
+      if (block.caption !== undefined) {
+        return `${main}\n\n*${block.caption}*\n\n`;
+      }
+      return `${main}\n\n`;
+    }
+
     case "raw":
       return `{/* TODO: ${block.todo} */}\n${block.html}\n\n`;
   }

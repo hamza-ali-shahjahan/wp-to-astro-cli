@@ -34,6 +34,8 @@ node bin/wp-to-astro.mjs migrate <wxr> --out <dir>   # post-build dogfood
 - **MDX is whitespace-sensitive.** `render-block.ts` must end every block with exactly one trailing `\n\n`; the joiner concatenates without adding more.
 - **`simple-git` init+commit fails without git identity.** Pass repo-local `config: ['user.email=bot@local', 'user.name=wp-to-astro']` on init. Golden test asserts on file tree, not on commit success.
 - **Node 25 is newer than the engine declares (≥20.11).** Some npm packages warn; we accept that. The CI matrix (when added) will pin to 20 + 22 LTS.
+- **Image pipeline is network-touching by default.** Without `--skip-images`, every `core/image` URL is fetched on migrate. The pipeline gracefully falls back to keeping remote URLs on any per-image failure (404, timeout, oversized, sharp crash) — failures are logged to stderr but never abort the migration. SSRF surface area is real but Pass 3 assumes the migrating user trusts their own WXR's URLs; an allowlist is deferred. See `docs/spec-pass-3.md` §Risks.
+- **`sharp` is a heavy native dep.** ~30 MB of platform-specific binaries under `node_modules/.pnpm/sharp@*/`. `pnpm install` may require approving the build script (`pnpm rebuild sharp`).
 
 ## Reference docs
 
