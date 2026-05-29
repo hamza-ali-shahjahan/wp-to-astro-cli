@@ -1,7 +1,7 @@
 import { readWxrItems, type WxrItem } from "./xml.js";
 import { parseContentBlocks } from "./blocks.js";
 import { extractSeoFromPostmeta } from "./seo.js";
-import { slugify } from "../../util/slug.js";
+import { slugify, titleFromSlug } from "../../util/slug.js";
 import {
   IR_VERSION,
   SiteSchema,
@@ -43,7 +43,9 @@ function toPost(it: WxrItem): Post {
   const date = requireIsoDate(it, slug);
   const post: Post = {
     slug,
-    title: it.title,
+    // WP allows untitled posts; derive a placeholder from the slug rather
+    // than emit an empty `title:` (which fails Astro's z.string() schema).
+    title: it.title.length > 0 ? it.title : titleFromSlug(slug),
     date,
     blocks: parseContentBlocks(it.contentEncoded),
   };
@@ -62,7 +64,7 @@ function toPage(it: WxrItem): Page {
   const date = optionalIsoDate(it);
   const page: Page = {
     slug,
-    title: it.title,
+    title: it.title.length > 0 ? it.title : titleFromSlug(slug),
     blocks: parseContentBlocks(it.contentEncoded),
   };
   if (date !== undefined) {

@@ -16,3 +16,17 @@ export function slugify(input: string): string {
     .replace(/^-+|-+$/g, "");
   return normalized.length > 0 ? normalized : "untitled";
 }
+
+/**
+ * Reconstruct a human-readable title from a slug, used as a fallback when a
+ * source post has an empty `<title>` (WordPress allows untitled posts).
+ *
+ * `edge-case-no-title` → `Edge Case No Title`
+ */
+export function titleFromSlug(slug: string): string {
+  return slug
+    .split("-")
+    .filter((w) => w.length > 0)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}

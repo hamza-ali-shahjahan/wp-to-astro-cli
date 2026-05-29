@@ -1,5 +1,5 @@
 import { parseContentBlocks } from "../wxr/blocks.js";
-import { slugify } from "../../util/slug.js";
+import { slugify, titleFromSlug } from "../../util/slug.js";
 import type {
   Page,
   Post,
@@ -19,9 +19,10 @@ export function postFromRest(p: WpPost): Post {
   const slug = slugify(p.slug || titleFallback(p.title));
   const date = isoDate(p.date_gmt, slug);
   const blocks = parseContentBlocks(p.content.raw ?? p.content.rendered);
+  const rawTitle = decodeHtml(p.title.raw ?? p.title.rendered);
   const post: Post = {
     slug,
-    title: decodeHtml(p.title.raw ?? p.title.rendered),
+    title: rawTitle.length > 0 ? rawTitle : titleFromSlug(slug),
     date,
     blocks,
   };
@@ -36,9 +37,10 @@ export function postFromRest(p: WpPost): Post {
 export function pageFromRest(p: WpPage): Page {
   const slug = slugify(p.slug || titleFallback(p.title));
   const blocks = parseContentBlocks(p.content.raw ?? p.content.rendered);
+  const rawTitle = decodeHtml(p.title.raw ?? p.title.rendered);
   const page: Page = {
     slug,
-    title: decodeHtml(p.title.raw ?? p.title.rendered),
+    title: rawTitle.length > 0 ? rawTitle : titleFromSlug(slug),
     blocks,
   };
   const date = optionalIsoDate(p.date_gmt);
