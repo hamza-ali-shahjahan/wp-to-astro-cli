@@ -16,7 +16,7 @@
     "node": ">=20.11"
   },
   "bin": {
-    "wp-to-astro": "./bin/wp-to-astro.mjs"
+    "wp-to-astro": "bin/wp-to-astro.mjs"
   },
   "main": "./dist/cli/index.js",
   "files": [
