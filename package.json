@@ -4,6 +4,14 @@
   "description": "Open-source CLI that migrates WordPress sites to clean Astro + MDX codebases.",
   "license": "Apache-2.0",
   "type": "module",
+  "homepage": "https://github.com/hamza-ali-shahjahan/wp-to-astro-cli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hamza-ali-shahjahan/wp-to-astro-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hamza-ali-shahjahan/wp-to-astro-cli/issues"
+  },
   "engines": {
     "node": ">=20.11"
   },
