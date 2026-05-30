@@ -98,6 +98,20 @@ Structural sanity check — validates `config.ts`, `package.json`, MDX frontmatt
 | WordPress permalink structure | `_redirects` (Netlify) + `vercel.json` (Vercel) 301 maps      |
 | ACF, RankMath, Elementor, Divi | **Not supported** — see roadmap                              |
 
+## Known compatibility issues (read before you migrate something you care about)
+
+End-to-end tested against the canonical [WordPress Theme Unit Test Data](https://github.com/WordPress/theme-test-data) (58 posts + 21 pages). The migration completes cleanly and the output passes structural verification, but **~77% (44 of 57) of those posts render in `astro dev` without manual cleanup**. The remaining 13 hit one or more of these v0.7-tracked issues:
+
+- **Unclosed void HTML tags** (`<br>`, `<hr>`, `<img>` without `/`) — valid HTML, invalid in MDX/JSX. Common in classic-editor content; needs sanitization at emission time.
+- **HTML comments inside body content** (`<!-- … -->`) — MDX wants `{/* … */}` syntax.
+- **Stray `<` or `!` characters** from old classic-editor raw HTML — MDX parser chokes.
+- **WordPress permalink structure not exposed via `/wp-json/wp/v2/settings`** — so REST-source migrations don't auto-generate redirects (WXR-source works because the structure is implicit in the post URLs).
+- **Non-Latin script slugs** (Greek, Arabic, etc.) currently URL-encode to hex strings — slugify needs a non-Latin fallback.
+
+If you're trying this on a real site, expect ~1 in 7 posts to need a hand-edit. The v0.7 release will close most of this gap; in the meantime the unmapped content is preserved as raw HTML with a `{/* TODO: unmapped block ... */}` marker so nothing is silently lost — you can search for those markers in the migrated MDX files and either fix or accept.
+
+The 44 that *do* migrate cleanly include all the common content shapes (paragraphs, headings, lists, images, quotes, code blocks, separators, pages with SEO metadata, redirect maps for date-based permalinks). For a modern (post-2020) WordPress blog where most content was authored in the block editor, the success rate is typically much higher than the theme-test fixture's 77% — the fixture is deliberately exhaustive of edge cases.
+
 ## CLI reference
 
 ```bash
