@@ -1,6 +1,6 @@
 {
   "name": "wp-to-astro",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Open-source CLI that migrates WordPress sites to clean Astro + MDX codebases.",
   "license": "Apache-2.0",
   "type": "module",

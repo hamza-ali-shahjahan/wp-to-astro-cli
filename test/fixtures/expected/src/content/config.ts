@@ -13,9 +13,12 @@ const seoSchema = z
   })
   .optional();
 
+// Note: `slug` is intentionally not in the schema — Astro reserves it as a
+// content-collection-builtin and errors with ContentSchemaContainsSlugError
+// if it appears here. The emitted MDX frontmatter still carries `slug:` for
+// human readability + non-Astro tooling; Astro silently ignores extra fields.
 const postSchema = z.object({
   title: z.string(),
-  slug: z.string(),
   date: z.string(),
   excerpt: z.string().optional(),
   seo: seoSchema,
@@ -23,7 +26,6 @@ const postSchema = z.object({
 
 const pageSchema = z.object({
   title: z.string(),
-  slug: z.string(),
   date: z.string().optional(),
   excerpt: z.string().optional(),
   seo: seoSchema,

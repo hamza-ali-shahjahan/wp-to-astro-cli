@@ -5,6 +5,41 @@ All notable changes to wp-to-astro will be documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] — 2026-05-30
+
+**Bugfix:** emitted Astro content-collection schema no longer includes `slug`,
+which Astro reserves and rejects with `ContentSchemaContainsSlugError`.
+
+Surfaced by running a real-world migration through `astro dev` (a deeper
+validation surface than `astro check`, which only validates `.astro` files
+and never touches content collections — the v0.6.0 smoke test missed it).
+
+### Fixed
+
+- `src/emitters/astro/templates/config.ts.tmpl` — removed `slug: z.string()`
+  from both `postSchema` and `pageSchema`. Added a comment explaining why.
+- Pass 1 / 2 / 3 / 5 expected `content/config.ts` fixtures updated to match.
+
+The emitted MDX frontmatter still carries `slug:` for human readability and
+non-Astro tooling. Astro silently ignores unknown frontmatter fields.
+
+### Known issues deferred to v0.7
+
+The same real-world test surfaced four other compatibility gaps that v0.6.1
+does NOT fix — they need a deeper "sanitize raw HTML for MDX" pass:
+
+- Non-self-closed void HTML tags (`<br>` → must be `<br />` for MDX)
+- HTML comments (`<!-- … -->` → MDX needs `{/* … */}`)
+- Stray `<` / `!` characters in body content from raw classic-editor blocks
+- WordPress permalink structure is not exposed via the `/wp-json/wp/v2/settings`
+  REST endpoint by default, so REST-based migrations don't get redirects.
+  Workaround until v0.7 lands `--permalink`: use WXR (which still doesn't
+  carry the structure either) and edit the redirect file by hand, or set
+  the structure via a future CLI flag.
+
+In our smoke test, 44 of 57 real-world posts rendered cleanly; the failing
+13 were impacted by one or more of the above.
+
 ## [0.6.0] — 2026-05-29
 
 **Pass 6: 301 redirect generation + `verify` subcommand.**
