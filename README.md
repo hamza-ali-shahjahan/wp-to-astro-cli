@@ -4,7 +4,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-**Status:** Alpha (v0.6.0). Supports both WXR XML files and live WordPress installs via REST. Output is designed for AI-agent editing — discrete `.mdx` files with deterministic frontmatter schemas. More on that soon.
+**Status:** Alpha (v0.6.1). Supports both WXR XML files and live WordPress installs via REST. Output is designed for AI-agent editing — discrete `.mdx` files with deterministic frontmatter schemas. More on that soon.
 
 ## Install
 
@@ -75,7 +75,7 @@ wp-to-astro verify ./my-astro-site
 
 Structural sanity check — validates `config.ts`, `package.json`, MDX frontmatter, and redirect files. Doesn't run `astro build` (do that yourself when ready).
 
-## What's mapped today (v0.6.0)
+## What's mapped today (v0.6.1)
 
 | Gutenberg block               | Result                                                        |
 | ----------------------------- | ------------------------------------------------------------- |
@@ -152,7 +152,7 @@ Add a new emitter: implement `emit<X>(site, outDir, opts) → EmitResult`.
 
 ## Roadmap
 
-Done in 6 passes (this v0.6.0 release):
+Done in 6 passes (this v0.6.1 release):
 
 | Pass | Focus                                                              |
 | ---- | ------------------------------------------------------------------ |
