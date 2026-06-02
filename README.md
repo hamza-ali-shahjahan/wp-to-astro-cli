@@ -178,6 +178,12 @@ Deferred to future passes:
 - WooCommerce product catalog static export
 - SSRF allowlist for image downloads (currently trusts the source's URLs)
 
+## Built with Hamzaish
+
+wp-to-astro was built through [Hamzaish](https://github.com/hamza-ali-shahjahan/hamzaish), an AI-native startup factory — six gated passes from empty directory to a published npm package in two sessions. The `/full-cycle` orchestration ran setup → spec → plan → test → build → review → ship at every step; cross-product learnings from the build (output validation for codegen tools, OSS publishing gotchas, the "your `tool check` is the wrong check for content collections" pattern) went back into Hamzaish's brain so the next product moves faster.
+
+What Hamzaish *didn't* save me from: its own #1 validation rule — "5 conversations with target-profile users before production code." I built six passes before talking to a single WordPress refugee. That's the current sprint; if you've migrated off WP recently and want a test migration for free, [open an issue](https://github.com/hamza-ali-shahjahan/wp-to-astro-cli/issues/new) and I'll run yours as the test case.
+
 ## Development
 
 ```bash
